@@ -1,0 +1,5 @@
+flask
+flask_cors
+# We must pin this version to support the old code style
+pymongo==3.12.3
+Flask-PyMongo

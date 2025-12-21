@@ -1,0 +1,17 @@
+cat <<EOF > .gitignore
+# Dependencies
+node_modules/
+__pycache__/
+*.pyc
+# Environment variables
+.env
+.env.local
+# IDE
+.vscode/
+.idea/
+# Docker volumes
+mongo-data/
+# Build files
+frontend/build/
+frontend/dist/
+EOF
