@@ -2,17 +2,17 @@ pipeline {
     agent any
 
     environment {
-        // VOTRE NOM D'UTILISATEUR DOCKER HUB
         DOCKER_USER = 'badr7788' 
-        
-        // L'ID de vos identifiants dans Jenkins (celui qu'on utilise depuis le début)
         DOCKER_CREDS_ID = 'dockerhub-credentials'
+        
+        // On définit les noms ici pour éviter les erreurs de frappe
+        IMAGE_BACKEND = "${DOCKER_USER}/todo-backend"
+        IMAGE_FRONTEND = "${DOCKER_USER}/todo-frontend"
     }
 
     stages {
         stage('Checkout') {
             steps {
-                // Gets the code from your Git repo
                 checkout scm
             }
         }
@@ -21,8 +21,7 @@ pipeline {
             steps {
                 script {
                     echo '--- Building Images with Compose ---'
-                    // Builds images as defined in docker-compose.yml
-                    // Ajoutez --no-cache si vous voulez forcer la reconstruction
+                    // Construit la version 'latest' définie dans docker-compose.yml
                     sh 'docker-compose build'
                 }
             }
@@ -42,10 +41,18 @@ pipeline {
         stage('Push to Registry') {
             steps {
                 script {
-                    echo '--- Pushing Images ---'
-                    // Attention: Cela ne marche que si les "image:" dans docker-compose.yml
-                    // commencent par "badr7788/..."
+                    echo '--- Pushing "latest" Image ---'
+                    // 1. Pousse la version 'latest' (pour la prod)
                     sh 'docker-compose push'
+                    
+                    echo "--- Tagging and Pushing Version : ${BUILD_NUMBER} ---"
+                    // 2. On crée manuellement le tag avec le numéro de build
+                    sh "docker tag ${IMAGE_BACKEND}:latest ${IMAGE_BACKEND}:${BUILD_NUMBER}"
+                    sh "docker tag ${IMAGE_FRONTEND}:latest ${IMAGE_FRONTEND}:${BUILD_NUMBER}"
+                    
+                    // 3. On pousse ces versions spécifiques
+                    sh "docker push ${IMAGE_BACKEND}:${BUILD_NUMBER}"
+                    sh "docker push ${IMAGE_FRONTEND}:${BUILD_NUMBER}"
                 }
             }
         }
@@ -54,11 +61,7 @@ pipeline {
             steps {
                 script {
                     echo '--- Deploying App ---'
-                    // Stops old containers to free up ports
                     sh 'docker-compose down || true'
-                    
-                    // Starts the new containers in the background
-                    // On ajoute --force-recreate pour être sûr de prendre la nouvelle image
                     sh 'docker-compose up -d --force-recreate'
                 }
             }
@@ -67,11 +70,10 @@ pipeline {
 
     post {
         always {
-            // Logout for security
             sh 'docker logout'
         }
         success {
-            echo '✅ Build, Push, and Deploy Successful!'
+            echo "✅ Success! Version ${BUILD_NUMBER} is live."
         }
         failure {
             echo '❌ Pipeline failed.'
